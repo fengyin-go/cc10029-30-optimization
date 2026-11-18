@@ -18,6 +18,24 @@ LIST_FIELDS = ["模板编号", "模板名称", "输入URL", "字段映射", "清
 STATUSES = ["草稿", "待校验", "已启用", "已停用"]
 
 
+@router.get("/execution-records")
+def list_execution_records(
+    entry_id: int | None = Query(default=None),
+    report_no: str | None = Query(default=None),
+) -> dict[str, Any]:
+    """选择器执行记录台账：由选择器校验数据报告动作驱动生成，可按规则或报告过滤。"""
+    items = service.list_execution_records(entry_id=entry_id, report_no=report_no)
+    return {"items": items, "total": len(items)}
+
+
+@router.get("/execution-records/{record_no}")
+def get_execution_record(record_no: str) -> dict[str, Any]:
+    record = service.get_execution_record(record_no)
+    if record is None:
+        raise HTTPException(status_code=404, detail=f"执行记录 {record_no} 不存在")
+    return record
+
+
 @router.get("")
 def get_graph() -> dict[str, Any]:
     """返回节点与边组成的 DAG 图数据。"""

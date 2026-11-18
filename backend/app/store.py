@@ -4,9 +4,15 @@
 """
 from __future__ import annotations
 
-from typing import Any
+import copy
+from contextlib import contextmanager
+from typing import Any, Iterator
 
 from app.seed import SEED_ROWS
+
+
+class StoreError(RuntimeError):
+    """事务内主动抛出的业务失败：触发整体回滚，保留上一版本数据。"""
 
 
 class Store:
@@ -14,6 +20,20 @@ class Store:
         self._tables: dict[str, list[dict[str, Any]]] = {
             name: [dict(row) for row in rows] for name, rows in SEED_ROWS.items()
         }
+
+    @contextmanager
+    def transaction(self) -> Iterator[None]:
+        """报告与执行记录等多表写入走同一事务：失败时整体回滚到提交前快照。
+
+        只依赖标准库做深拷贝快照，语义上对齐数据库事务的 commit/rollback：
+        上下文内抛出 StoreError（或任何异常）都会把全部表恢复到进入时的版本。
+        """
+        snapshot = copy.deepcopy(self._tables)
+        try:
+            yield
+        except BaseException:
+            self._tables = snapshot
+            raise
 
     def module_names(self) -> list[str]:
         return sorted(self._tables)
